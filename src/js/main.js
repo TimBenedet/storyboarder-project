@@ -1,10 +1,9 @@
-const remoteMain = require('@electron/remote/main')
-remoteMain.initialize()
 const {app, ipcMain, BrowserWindow, dialog, powerSaveBlocker} = electron = require('electron')
+const remoteMain = require('@electron/remote/main')
 
 const fs = require('fs-extra')
 const path = require('path')
-const isDev = require('electron-is-dev')
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 const trash = require('trash')
 const chokidar = require('chokidar')
 const os = require('os')
@@ -13,7 +12,7 @@ const fileSystem = require('fs')
 const EventEmitter = require('events')
 
 const prefModule = require('./prefs')
-prefModule.init(path.join(app.getPath('userData'), 'pref.json'))
+// prefModule.init() déplacé dans app.on('ready') car app.getPath() n'est pas disponible avant
 
 
 const configureStore = require('./shared/store/configureStore')
@@ -69,13 +68,14 @@ auth.json can be saved/loaded, e.g.:
       throttle(() => authStorage.saveState({ auth: store.getState().auth }), 5000)
     )
 */
-const store = configureStore()
+// Store sera initialisé dans app.on('ready') car electron-redux utilise ipcMain
+let store = null
 
 
 if (isDev) {
-  const { default: installExtension, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS } = require('electron-devtools-installer')
-
+  // Déplacer le require à l'intérieur de whenReady car le module appelle app.getPath() immédiatement
   app.whenReady().then(() => {
+    const { default: installExtension, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS } = require('electron-devtools-installer')
     installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS])
       .then((name) => console.log(`[Extensions] ADD ${name}`))
       .catch((err) => console.log('[Extensions] ERR: ', err))
@@ -101,7 +101,8 @@ let powerSaveId = 0
 
 let previousScript
 
-let prefs = prefModule.getPrefs('main')
+// prefs sera initialisé dans app.on('ready') après prefModule.init()
+let prefs = null
 
 // state
 let currentFile
@@ -128,6 +129,18 @@ const sendToMainWindow = (channel, ...args) => {
 app.commandLine.appendSwitch('ignore-gpu-blacklist')
 // fix issue where iframe content could not be modified in welcome window
 app.commandLine.appendSwitch('disable-site-isolation-trials')
+
+// WebGL stability fixes for Windows
+if (process.platform === 'win32') {
+  // Use ANGLE with D3D9 fallback for older GPUs (more compatible than D3D11)
+  app.commandLine.appendSwitch('use-angle', 'd3d9')
+  // Disable GPU process crash limit to prevent WebGL context loss
+  app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
+  // Disable GPU sandbox for compatibility with older drivers
+  app.commandLine.appendSwitch('disable-gpu-sandbox')
+  // Use software rendering (SwiftShader) as fallback if GPU fails
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader')
+}
 
 // this only works on mac.
 app.on('open-file', (event, path) => {
@@ -157,6 +170,17 @@ const syncLanguages = (dir, isLanguageFile, array) => {
 }
 
 app.on('ready', async () => {
+  // Initialiser les préférences ici car app.getPath() n'est disponible qu'après 'ready'
+  prefModule.init(path.join(app.getPath('userData'), 'pref.json'))
+  prefs = prefModule.getPrefs('main')
+
+  // Initialiser le store Redux (electron-redux utilise ipcMain qui n'est disponible qu'après ready)
+  store = configureStore()
+
+  // Initialiser les modules qui nécessitent electron après 'ready'
+  shotGeneratorWindow.init(electron)
+
+  remoteMain.initialize()
   analytics.init(prefs.enableAnalytics)
 
   const exporterFfmpeg = require('./exporters/ffmpeg')
@@ -1128,7 +1152,7 @@ let loadStoryboarderWindow = (filename, scriptData, locations, characters, board
         analytics.screenView('welcome')
       }
 
-      appServer.setCanImport(false)
+      if (appServer) appServer.setCanImport(false)
 
       // stop watching any fountain files
       if (scriptWatcher) { scriptWatcher.close() }
@@ -1509,7 +1533,7 @@ ipcMain.on('log', (event, opt) => {
 })
 
 ipcMain.on('workspaceReady', event => {
-  appServer.setCanImport(true)
+  if (appServer) appServer.setCanImport(true)
 
   !loadingStatusWindow.isDestroyed() && loadingStatusWindow.hide()
 

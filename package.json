@@ -52,6 +52,7 @@
   },
   "build": {
     "beforeBuild": "scripts/electron-builder-before-build.js",
+    "afterPack": "scripts/electron-builder-after-pack.js",
     "afterSign": "scripts/notarize.js",
     "asar": true,
     "appId": "com.wonderunit.storyboarder",
@@ -78,10 +79,7 @@
       "gatekeeperAssess": false
     },
     "win": {
-      "icon": "build/icon.ico",
-      "timeStampServer": "http://timestamp.comodoca.com/authenticode",
-      "certificateSubjectName": "Wonder Unit, Inc.",
-      "publisherName": "Wonder Unit, Inc."
+      "icon": "build/icon.ico"
     },
     "dmg": {
       "sign": false,
@@ -152,6 +150,7 @@
     "@babel/register": "^7.12.1",
     "@babel/runtime": "^7.12.1",
     "@tweenjs/tween.js": "^18.5.0",
+    "app-builder-bin": "^4.0.0",
     "babel-loader": "^8.1.0",
     "babel-plugin-add-module-exports": "^1.0.4",
     "clean-webpack-plugin": "^3.0.0",
@@ -162,7 +161,8 @@
     "css-loader": "^3.5.3",
     "dotenv": "8.2.0",
     "dotenv-webpack": "^3.0.0",
-    "electron": "18.0.2",
+    "electron": "^18.0.2",
+    "electron-builder": "^23.6.0",
     "electron-devtools-installer": "3.1.1",
     "electron-mocha": "^11.0.2",
     "electron-notarize": "^1.1.1",
@@ -207,7 +207,7 @@
     "color-js": "^1.0.4",
     "eases": "1.0.8",
     "electron-google-analytics": "0.0.16",
-    "electron-is-dev": "2.0.0",
+    "electron-is-dev": "^1.2.0",
     "electron-log": "4.3.0",
     "electron-redux": "^2.0.0-alpha.9",
     "electron-updater": "4.6.5",

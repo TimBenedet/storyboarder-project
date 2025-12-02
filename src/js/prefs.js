@@ -70,6 +70,12 @@ if(cpus.length <= 2 || cpu.speed <= 2000) {
   defaultPrefs.enableStabilizer = false // DEPRECATED used by old SketchPane
 }
 
+// On Windows, disable High Quality Drawing Engine by default for better WebGL stability
+// Users can still enable it in preferences if their GPU supports it
+if (process.platform === 'win32') {
+  defaultPrefs.enableHighQualityDrawingEngine = false
+}
+
 let prefs
 
 const verify = data => {
