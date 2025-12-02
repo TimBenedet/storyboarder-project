@@ -115,6 +115,15 @@ let isLoadingProject
 
 let appServer
 
+// Helper function to safely send messages to mainWindow
+const sendToMainWindow = (channel, ...args) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args)
+    return true
+  }
+  return false
+}
+
 // attempt to support older GPUs
 app.commandLine.appendSwitch('ignore-gpu-blacklist')
 // fix issue where iframe content could not be modified in welcome window
@@ -291,11 +300,11 @@ app.on('ready', async () => {
     log.info('pointerEvent')
   })
   appServer.on('image', (e) => {
-    mainWindow.webContents.send('newBoard', 1)
-    mainWindow.webContents.send('importImage', e.fileData)
+    sendToMainWindow('newBoard', 1)
+    sendToMainWindow('importImage', e.fileData)
   })
   appServer.on('worksheet', (e) => {
-    mainWindow.webContents.send('importWorksheets', [e.fileData])
+    sendToMainWindow('importWorksheets', [e.fileData])
   })
   appServer.on('error', err => {
     if (err.errno === 'EADDRINUSE') {
@@ -468,22 +477,19 @@ let openWelcomeWindow = () => {
   remoteMain.enable(newWindow.webContents)
   newWindow.loadURL(`file://${__dirname}/../new.html`)
 
-  let recentDocumentsCopy
+  // Clean up recent documents that no longer exist
   if (prefs.recentDocuments) {
-    let count = 0
-    recentDocumentsCopy = prefs.recentDocuments
-    for (var recentDocument of prefs.recentDocuments) {
+    // Filter out inaccessible documents instead of modifying array during iteration
+    let recentDocumentsCopy = prefs.recentDocuments.filter(recentDocument => {
       try {
         fs.accessSync(recentDocument.filename, fs.R_OK)
+        return true
       } catch (e) {
-        // It isn't accessible
-        // log.warn('Recent file no longer exists: ', recentDocument.filename)
-        recentDocumentsCopy.splice(count, 1)
+        // File is not accessible, remove it from the list
+        return false
       }
-      count++
-    }
+    })
     prefs.recentDocuments = recentDocumentsCopy
-
     prefModule.set('recentDocuments', recentDocumentsCopy)
   }
 
@@ -524,7 +530,7 @@ let openFile = filepath => {
       if (err) {
         dialog.showMessageBox({
           type: 'error',
-          message: 'Could not open Final Draft file.\n' + error.message,
+          message: 'Could not open Final Draft file.\n' + err.message,
         })
         return
       }
@@ -533,7 +539,7 @@ let openFile = filepath => {
         if (err) {
           dialog.showMessageBox({
             type: 'error',
-            message: 'Could not parse Final Draft XML.\n' + error.message,
+            message: 'Could not parse Final Draft XML.\n' + err.message,
           })
           return
         }
@@ -693,9 +699,9 @@ let importImagesDialogue = (shouldReplace = false) => {
       }
 
       if (shouldReplace) {
-        mainWindow.webContents.send('importImageAndReplace', filepathsRecursive)
+        sendToMainWindow('importImageAndReplace', filepathsRecursive)
       } else {
-        mainWindow.webContents.send('insertNewBoardsWithFiles', filepathsRecursive)
+        sendToMainWindow('insertNewBoardsWithFiles', filepathsRecursive)
       }
     }
   }).catch(err => {
@@ -707,8 +713,7 @@ const processFdxData = fdxObj => {
   try {
     ensureFdxSceneIds(fdxObj)
   } catch (err) {
-    throw new Error('Could not add scene ids to Final Draft data.\n' + error.message)
-    return
+    throw new Error('Could not add scene ids to Final Draft data.\n' + err.message)
   }
 
   let scriptData = importerFinalDraft.importFdxData(fdxObj)
@@ -819,7 +824,7 @@ const onScriptFileChange = (eventType, filepath, stats) => {
         // write scene ids for any new scenes
         data = ensureFountainSceneIds(filepath, data)
         let [scriptData, locations, characters, metadata] = processFountainData(data, false, false)
-        mainWindow.webContents.send('reloadScript', [scriptData, locations, characters])
+        sendToMainWindow('reloadScript', [scriptData, locations, characters])
       } catch (error) {
         dialog.showMessageBox({
           type: 'error',
@@ -833,7 +838,7 @@ const onScriptFileChange = (eventType, filepath, stats) => {
         if (err) {
           dialog.showMessageBox({
             type: 'error',
-            message: 'Could not parse Final Draft XML.\n' + error.message,
+            message: 'Could not parse Final Draft XML.\n' + err.message,
           })
           return
         }
@@ -841,7 +846,7 @@ const onScriptFileChange = (eventType, filepath, stats) => {
         try {
           ensureFdxSceneIds(fdxObj)
           let [scriptData, locations, characters, metadata] = processFdxData(fdxObj)
-          mainWindow.webContents.send('reloadScript', [scriptData, locations, characters])
+          sendToMainWindow('reloadScript', [scriptData, locations, characters])
         } catch (error) {
           dialog.showMessageBox({
             type: 'error',
@@ -1229,103 +1234,103 @@ let attemptLicenseVerification = async () => {
 //////////////////
 
 menuBus.on('newBoard', (e, arg)=> {
-  mainWindow.webContents.send('newBoard', arg)
+  sendToMainWindow('newBoard', arg)
 })
 
 menuBus.on('deleteBoards', (e, arg)=> {
-  mainWindow.webContents.send('deleteBoards', arg)
+  sendToMainWindow('deleteBoards', arg)
 })
 
 menuBus.on('duplicateBoard', (e, arg)=> {
-  mainWindow.webContents.send('duplicateBoard')
+  sendToMainWindow('duplicateBoard')
 })
 
 menuBus.on('reorderBoardsLeft', (e, arg)=> {
-  mainWindow.webContents.send('reorderBoardsLeft')
+  sendToMainWindow('reorderBoardsLeft')
 })
 
 menuBus.on('reorderBoardsRight', (e, arg)=> {
-  mainWindow.webContents.send('reorderBoardsRight')
+  sendToMainWindow('reorderBoardsRight')
 })
 
 menuBus.on('togglePlayback', (e, arg)=> {
-  mainWindow.webContents.send('togglePlayback')
+  sendToMainWindow('togglePlayback')
 })
 
 menuBus.on('openInEditor', (e, arg)=> {
-  mainWindow.webContents.send('openInEditor')
+  sendToMainWindow('openInEditor')
 })
 
 menuBus.on('goPreviousBoard', (e, arg)=> {
-  mainWindow.webContents.send('goPreviousBoard')
+  sendToMainWindow('goPreviousBoard')
 })
 
 menuBus.on('goNextBoard', (e, arg)=> {
-  mainWindow.webContents.send('goNextBoard')
+  sendToMainWindow('goNextBoard')
 })
 
 menuBus.on('previousScene', (e, arg)=> {
-  mainWindow.webContents.send('previousScene')
+  sendToMainWindow('previousScene')
 })
 
 menuBus.on('nextScene', (e, arg)=> {
-  mainWindow.webContents.send('nextScene')
+  sendToMainWindow('nextScene')
 })
 
 menuBus.on('copy', (e, arg)=> {
-  mainWindow.webContents.send('copy')
+  sendToMainWindow('copy')
 })
 
 menuBus.on('paste', (e, arg)=> {
-  mainWindow.webContents.send('paste')
+  sendToMainWindow('paste')
 })
 
 menuBus.on('paste-replace', () => {
-  mainWindow.webContents.send('paste-replace')
+  sendToMainWindow('paste-replace')
 })
 
 /// TOOLS
 
 menuBus.on('undo', (e, arg)=> {
-  mainWindow.webContents.send('undo')
+  sendToMainWindow('undo')
 })
 
 
 menuBus.on('redo', (e, arg)=> {
-  mainWindow.webContents.send('redo')
+  sendToMainWindow('redo')
 })
 
 menuBus.on('setTool', (e, arg) =>
-  mainWindow.webContents.send('setTool', arg))
+  sendToMainWindow('setTool', arg))
 
 menuBus.on('useColor', (e, arg)=> {
-  mainWindow.webContents.send('useColor', arg)
+  sendToMainWindow('useColor', arg)
 })
 
 menuBus.on('clear', (e, arg) => {
-  mainWindow.webContents.send('clear', arg)
+  sendToMainWindow('clear', arg)
 })
 
 menuBus.on('brushSize', (e, arg)=> {
-  mainWindow.webContents.send('brushSize', arg)
+  sendToMainWindow('brushSize', arg)
 })
 
 menuBus.on('flipBoard', (e, arg)=> {
-  mainWindow.webContents.send('flipBoard', arg)
+  sendToMainWindow('flipBoard', arg)
 })
 
 /// VIEW
 
 menuBus.on('cycleViewMode', (e, arg)=> {
-  mainWindow.webContents.send('cycleViewMode', arg)
+  sendToMainWindow('cycleViewMode', arg)
 })
 
 menuBus.on('toggleCaptions', (e, arg)=> {
-  mainWindow.webContents.send('toggleCaptions', arg)
+  sendToMainWindow('toggleCaptions', arg)
 })
 
 menuBus.on('toggleTimeline', () =>
-  mainWindow.webContents.send('toggleTimeline'))
+  sendToMainWindow('toggleTimeline'))
 
 //////////////////
 // Welcome Window
@@ -1345,11 +1350,11 @@ menuBus.on('openDialogue', () => openDialogue())
 // importImagesDialogue (ipc and menu)
 ipcMain.on('importImagesDialogue', (e, arg) => {
   importImagesDialogue(arg)
-  mainWindow.webContents.send('importNotification', arg)
+  sendToMainWindow('importNotification', arg)
 })
 menuBus.on('importImagesDialogue', (e, arg) => {
   importImagesDialogue(arg)
-  mainWindow.webContents.send('importNotification', arg)
+  sendToMainWindow('importNotification', arg)
 })
 
 
@@ -1380,34 +1385,34 @@ ipcMain.on('resumeSleep', ()=> {
 /// menu pass through
 
 ipcMain.on('goBeginning', (event, arg)=> {
-  mainWindow.webContents.send('goBeginning')
+  sendToMainWindow('goBeginning')
 })
 
 ipcMain.on('goPreviousScene', (event, arg)=> {
-  mainWindow.webContents.send('goPreviousScene')
+  sendToMainWindow('goPreviousScene')
 })
 
 ipcMain.on('goPrevious', (event, arg)=> {
-  mainWindow.webContents.send('goPrevious')
+  sendToMainWindow('goPrevious')
 })
 
 ipcMain.on('goNext', (event, arg)=> {
-  mainWindow.webContents.send('goNext')
+  sendToMainWindow('goNext')
 })
 
 ipcMain.on('goNextScene', (event, arg)=> {
-  mainWindow.webContents.send('goNextScene')
+  sendToMainWindow('goNextScene')
 })
 
 menuBus.on('toggleSpeaking', (event, arg)=> {
-  mainWindow.webContents.send('toggleSpeaking')
+  sendToMainWindow('toggleSpeaking')
 })
 
 menuBus.on('stopAllSounds', event =>
-  mainWindow.webContents.send('stopAllSounds'))
+  sendToMainWindow('stopAllSounds'))
 
 menuBus.on('addAudioFile', event =>
-  mainWindow.webContents.send('addAudioFile'))
+  sendToMainWindow('addAudioFile'))
 
 ipcMain.on('playsfx', (event, arg)=> {
   if (welcomeWindow) {
@@ -1420,7 +1425,7 @@ ipcMain.on('test', (event, arg)=> {
 })
 
 ipcMain.on('textInputMode', (event, arg)=> {
-  mainWindow.webContents.send('textInputMode', arg)
+  sendToMainWindow('textInputMode', arg)
 })
 
 menuBus.on('preferences', (event, arg) => {
@@ -1429,57 +1434,57 @@ menuBus.on('preferences', (event, arg) => {
 })
 
 menuBus.on('toggleGuide', (event, arg) => {
-  mainWindow.webContents.send('toggleGuide', arg)
+  sendToMainWindow('toggleGuide', arg)
 })
 
 menuBus.on('toggleOnionSkin', event =>
-  mainWindow.webContents.send('toggleOnionSkin'))
+  sendToMainWindow('toggleOnionSkin'))
 
 menuBus.on('toggleNewShot', (event, arg) => {
-  mainWindow.webContents.send('toggleNewShot', arg)
+  sendToMainWindow('toggleNewShot', arg)
 })
 
 menuBus.on('showTip', (event, arg) => {
-  mainWindow.webContents.send('showTip', arg)
+  sendToMainWindow('showTip', arg)
 })
 
 menuBus.on('exportAnimatedGif', (event, arg) => {
-  mainWindow.webContents.send('exportAnimatedGif', arg)
+  sendToMainWindow('exportAnimatedGif', arg)
 })
 
 menuBus.on('exportVideo', (event, arg) => {
-  mainWindow.webContents.send('exportVideo', arg)
+  sendToMainWindow('exportVideo', arg)
 })
 
 menuBus.on('exportFcp', (event, arg) => {
-  mainWindow.webContents.send('exportFcp', arg)
+  sendToMainWindow('exportFcp', arg)
 })
 
 menuBus.on('exportImages', (event, arg) => {
-  mainWindow.webContents.send('exportImages', arg)
+  sendToMainWindow('exportImages', arg)
 })
 
 menuBus.on('exportWeb', (event, arg) => {
-  mainWindow.webContents.send('exportWeb', arg)
+  sendToMainWindow('exportWeb', arg)
 })
 menuBus.on('exportZIP', (event, arg) => {
-  mainWindow.webContents.send('exportZIP', arg)
+  sendToMainWindow('exportZIP', arg)
 })
 
 menuBus.on('exportCleanup', (event, arg) => {
-  mainWindow.webContents.send('exportCleanup', arg)
+  sendToMainWindow('exportCleanup', arg)
 })
 
 menuBus.on('save', (event, arg) => {
-  mainWindow.webContents.send('save', arg)
+  sendToMainWindow('save', arg)
 })
 
 menuBus.on('saveAs', (event, arg) => {
-  mainWindow.webContents.send('saveAs', arg)
+  sendToMainWindow('saveAs', arg)
 })
 
 ipcMain.on('prefs:change', (event, arg) => {
-  !mainWindow.isDestroyed() && mainWindow.webContents.send('prefs:change', arg)
+  sendToMainWindow('prefs:change', arg)
 })
 
 menuBus.on('showKeyCommands', (event, arg) => {
@@ -1628,8 +1633,8 @@ menuBus.on('importWorksheets', async (event, arg) => {
     })
 
     if (filePaths.length) {
-      mainWindow.webContents.send('importWorksheets', filePaths)
-      mainWindow.webContents.send('importNotification', arg)
+      sendToMainWindow('importWorksheets', filePaths)
+      sendToMainWindow('importNotification', arg)
     }
 
   } catch (err) {
@@ -1638,34 +1643,34 @@ menuBus.on('importWorksheets', async (event, arg) => {
 })
 
 ipcMain.on('exportPrintableWorksheetPdf', (event, sourcePath) =>
-  mainWindow.webContents.send('exportPrintableWorksheetPdf', sourcePath)
+  sendToMainWindow('exportPrintableWorksheetPdf', sourcePath)
 )
 
 menuBus.on('toggleAudition', (event) => {
-  mainWindow.webContents.send('toggleAudition')
+  sendToMainWindow('toggleAudition')
 })
 
 // uploader > main-window
 ipcMain.on('signInSuccess', (event, response) => {
-  mainWindow.webContents.send('signInSuccess', response)
+  sendToMainWindow('signInSuccess', response)
 })
 
 menuBus.on('revealShotGenerator',
-  event => mainWindow.webContents.send('revealShotGenerator'))
+  event => sendToMainWindow('revealShotGenerator'))
 
 menuBus.on('zoomReset',
-  event => mainWindow.webContents.send('zoomReset'))
+  event => sendToMainWindow('zoomReset'))
 menuBus.on('scale-ui-by',
-  (event, value) => mainWindow.webContents.send('scale-ui-by', value))
+  (event, value) => sendToMainWindow('scale-ui-by', value))
 menuBus.on('scale-ui-reset',
-  (event, value) => mainWindow.webContents.send('scale-ui-reset', value))
+  (event, value) => sendToMainWindow('scale-ui-reset', value))
 
 menuBus.on('saveShot',
-  (event, data) => mainWindow.webContents.send('saveShot', data))
+  (event, data) => sendToMainWindow('saveShot', data))
 ipcMain.on('insertShot',
-  (event, data) => mainWindow.webContents.send('insertShot', data))
+  (event, data) => sendToMainWindow('insertShot', data))
 ipcMain.on('storyboarder:get-boards',
-  event => mainWindow.webContents.send('storyboarder:get-boards'))
+  event => sendToMainWindow('storyboarder:get-boards'))
 ipcMain.on('shot-generator:get-boards', (event, data) => {
   let win = shotGeneratorWindow.getWindow()
   if (win) {
@@ -1673,7 +1678,7 @@ ipcMain.on('shot-generator:get-boards', (event, data) => {
   }
 })
 ipcMain.on('storyboarder:get-board',
-  (event, uid) => mainWindow.webContents.send('storyboarder:get-board', uid))
+  (event, uid) => sendToMainWindow('storyboarder:get-board', uid))
 ipcMain.on('shot-generator:get-board', (event, board) => {
   let win = shotGeneratorWindow.getWindow()
   if (win) {
@@ -1681,7 +1686,7 @@ ipcMain.on('shot-generator:get-board', (event, board) => {
   }
 })
 ipcMain.on('storyboarder:get-storyboarder-file-data',
-  (event, uid) => mainWindow.webContents.send('storyboarder:get-storyboarder-file-data'))
+  (event, uid) => sendToMainWindow('storyboarder:get-storyboarder-file-data'))
 ipcMain.on('shot-generator:get-storyboarder-file-data', (event, data) => {
   let win = shotGeneratorWindow.getWindow()
   if (win) {
@@ -1689,7 +1694,7 @@ ipcMain.on('shot-generator:get-storyboarder-file-data', (event, data) => {
   }
 })
 ipcMain.on('storyboarder:get-state',
-  (event, uid) => mainWindow.webContents.send('storyboarder:get-state'))
+  (event, uid) => sendToMainWindow('storyboarder:get-state'))
 ipcMain.on('shot-generator:get-state', (event, data) => {
   let win = shotGeneratorWindow.getWindow()
   if (win) {

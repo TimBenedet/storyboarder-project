@@ -14,6 +14,16 @@ Whether you are a story artist, writer, director, in advertising, or just a pers
 
 Also, if this project seems interesting, could you press that star button at the top right? Thanks!!!!
 
+## Tech Stack
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Electron | 18.0.2 | Desktop framework |
+| React | 16.10.1 | UI Framework |
+| Redux | 4.0.1 | State management |
+| Three.js | 0.115.0 | 3D rendering |
+| Express | 4.15.4 | P2P server |
+
 ## It's easy...
 
 1. Start a blank storyboard or open a Fountain screenplay.
@@ -24,7 +34,7 @@ Don't get slowed down by too many buttons or options. You're here to board stori
 
 Works with Pens on any tablet or Cintiq or even a Microsoft Surface. Also works with a mouse.
 
-## Features:
+## Features
 
 * Simple, Smooth Drawing
 * Super Simple Interface
@@ -41,6 +51,9 @@ Works with Pens on any tablet or Cintiq or even a Microsoft Surface. Also works 
 * Track changes
 * Collaborate on Github
 * Export to various Formats
+* **Shot Generator** - 3D scene composition with characters and props
+* **AR/VR Support** - WebXR integration for immersive storyboarding
+* **P2P Collaboration** - Real-time collaborative editing
 
 ## We have 4 brush types which are all you need to draw fast:
 
@@ -90,6 +103,65 @@ Need a straight line? Hold shift while you're drawing and you got straight lines
 * Scale Contents: <kbd>Cmd</kbd>+<kbd>Option</kbd>
 * Color Pick: <kbd>Hold Option</kbd>
 
+## Development
+
+### Prerequisites
+
+- Node.js (LTS version recommended)
+- npm
+
+### Installation
+
+```bash
+npm install
+```
+
+### Running in Development
+
+```bash
+npm start
+```
+
+This starts all webpack watchers and launches Electron in development mode.
+
+### Building for Production
+
+```bash
+# macOS
+npm run dist:mac
+
+# Windows
+npm run dist:win
+
+# Linux
+npm run dist:linux
+```
+
+### Running Tests
+
+```bash
+npm test
+```
+
+### Project Structure
+
+```
+storyboarder/
+├── src/
+│   ├── js/           # Main source code
+│   │   ├── main.js   # Electron main process
+│   │   ├── shot-generator/  # 3D editor
+│   │   ├── xr/       # VR/XR module
+│   │   ├── ar/       # AR module
+│   │   └── windows/  # Electron windows
+│   ├── css/          # Stylesheets
+│   └── data/         # Assets (brushes, 3D models)
+├── server/           # P2P collaboration server
+├── configs/          # Webpack configurations
+├── test/             # Test files and fixtures
+└── build/            # Build assets and icons
+```
+
 ## FAQ
 
 **"CHARLES, I RESPEKT UR OPINIONATED SOFTWARE DESIGN GANGSTER, BUT I NEED TO POLISH MY DRAWINGS TIGHTER."**
@@ -105,6 +177,10 @@ You're probably boarding on the Simpsons. You might want to escape North Korea t
 
 https://wonderunit.com/thoughts-on-free-and-open-source/
 
-## Contributers
+## Contributors
 
 We would love help on this project. If you are interested in helping out feel free to email charles@wonderunit.com or submit a PR.
+
+## Technical Documentation
+
+For a detailed technical analysis of the codebase, including architecture details and improvement recommendations, see [ANALYSE_TECHNIQUE.md](ANALYSE_TECHNIQUE.md).
