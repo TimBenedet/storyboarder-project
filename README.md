@@ -127,15 +127,27 @@ This starts all webpack watchers and launches Electron in development mode.
 ### Building for Production
 
 ```bash
-# macOS
+# macOS (Intel + Apple Silicon)
 npm run dist:mac
 
-# Windows
+# Windows (cross-compilation from macOS supported)
 npm run dist:win
 
 # Linux
 npm run dist:linux
 ```
+
+### Windows Build Notes
+
+The Windows build includes special handling for cross-compilation from macOS:
+
+- **ffmpeg binary**: The `afterPack` hook automatically downloads the correct Windows ffmpeg.exe during the build process
+- **GPU stability**: Windows builds include ANGLE D3D9 and SwiftShader fallback for better WebGL compatibility
+- **High Quality Drawing Engine**: Disabled by default on Windows for GPU stability (can be enabled in preferences if your GPU supports it)
+
+Build scripts location:
+- `scripts/electron-builder-before-build.js` - Pre-build configuration
+- `scripts/electron-builder-after-pack.js` - Post-pack ffmpeg handling for Windows
 
 ### Running Tests
 
